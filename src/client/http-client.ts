@@ -17,12 +17,7 @@ export type HttpClientResponse<T = any> = {
 }
 
 export class HttpClientError extends Error {
-  constructor(
-    message: string,
-    public status: number,
-    public data: any,
-    public headers?: Headers,
-  ) {
+  constructor(message: string, public status: number, public data: any, public headers?: Headers) {
     super(`${status} ${message}`)
     this.name = 'HttpClientError'
   }
@@ -56,7 +51,7 @@ export class HttpClient {
 
     // Handle file uploads
     for (const param of fileParams) {
-      console.error(`extracting ${param}`, {params})
+      console.error(`extracting ${param}`, { params })
       const filePath = params[param]
       if (!filePath) {
         throw new Error(`File path must be provided for parameter: ${param}`)
@@ -66,22 +61,22 @@ export class HttpClient {
           addFile(param, filePath)
           break
         case 'object':
-          if(Array.isArray(filePath)) {
+          if (Array.isArray(filePath)) {
             let fileCount = 0
-            for(const file of filePath) {
+            for (const file of filePath) {
               addFile(param, file)
               fileCount++
             }
             break
           }
-          //deliberate fallthrough
+        //deliberate fallthrough
         default:
           throw new Error(`Unsupported file type: ${typeof filePath}`)
       }
       function addFile(name: string, filePath: string) {
-          try {
-            const fileStream = fs.createReadStream(filePath)
-            formData.append(name, fileStream)
+        try {
+          const fileStream = fs.createReadStream(filePath)
+          formData.append(name, fileStream)
         } catch (error) {
           throw new Error(`Failed to read file at ${filePath}: ${error}`)
         }
@@ -103,7 +98,7 @@ export class HttpClient {
    */
   async executeOperation<T = any>(
     operation: OpenAPIV3.OperationObject & { method: string; path: string },
-    params: Record<string, any> = {},
+    params: Record<string, any> = {}
   ): Promise<HttpClientResponse<T>> {
     const api = await this.api
     const operationId = operation.operationId
@@ -171,6 +166,10 @@ export class HttpClient {
         if (value) responseHeaders.append(key, value.toString())
       })
 
+      if (response.data && response.data.access_token) {
+        this.setHeaders({ 'X-RCMS-API-ACCESS-TOKEN': response.data.access_token.value })
+      }
+
       return {
         data: response.data,
         status: response.status,
@@ -188,5 +187,14 @@ export class HttpClient {
       }
       throw error
     }
+  }
+
+  setHeaders(headers: Record<string, string>) {
+    this.client.getClient().then((client) => {
+      client.defaults.headers = {
+        ...client.defaults.headers,
+        ...headers,
+      }
+    })
   }
 }
